@@ -24,6 +24,9 @@ Includes dimensionality reduction and population clustering.
 ### 3. Additional Seurat processing (03_sc_additional_processing.Rmd)
 Perform log-transformation for better visualisations, and sub-cluster and re-process two clusters of interest.
 
+### 5. Single Cell stats calculation
+Testing whether UMIs per cell are significantly higher at later stages of regeneration.
+
 ## Data and References
 ### /data dir
 contains smaller annotation files and example gene tables for plotting.
