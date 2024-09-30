@@ -1,0 +1,106 @@
+---
+title: "03 additional sc processing and subclustering"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(tidyverse)
+scd <- readRDS(file = "data/scd.RDS")
+```
+
+# create log-transformed data slot 
+standard data transformation and normalisation workflows scale the counts by sample (i.e. cell) size. In case of genuinely larger cells with higher RNA content, this might quench biologically important signal (see ref. )
+We therefore generated logtransformed (log1p) data without scaling to alleviate this issue. The log transformation is required to reduce the overall scale range/ visually better.
+
+```{r}
+log_assay <- CreateAssayObject(data = scd@assays$RNA@data)
+scd[["logdata"]] <- log_assay
+scd@assays$logdata@data <- log1p(scd@assays$RNA@counts)
+```
+
+# add metadata information
+```{r}
+# sampling timepoint
+scd$timepoint <- scd$orig.ident
+scd$timepoint[scd@meta.data$orig.ident=="Blastema_12hpa"] <- "12hpa"
+scd$timepoint[scd@meta.data$orig.ident=="Blastema_24hpa"] <- "24hpa"
+scd$timepoint[scd@meta.data$orig.ident=="Blastema_24hpa_c"] <- "24hpa"
+scd$timepoint[scd@meta.data$orig.ident=="Blastema_48hpa"] <- "48hpa"
+scd$timepoint[scd@meta.data$orig.ident=="Blastema_48hpa_c"] <- "48hpa"
+scd$timepoint[scd@meta.data$orig.ident=="Blastema_72hpa"] <- "72hpa"
+scd$timepoint[scd@meta.data$orig.ident=="Blastema_72hpa_c"] <- "72hpa"
+scd$timepoint[scd@meta.data$orig.ident=="trunk"] <- "0hpa"
+scd$timepoint[scd@meta.data$orig.ident=="trunk_c"] <- "0hpa"
+
+table(scd$timepoint)
+
+# sampling run
+scd$sample <- scd$orig.ident
+scd$sample[scd@meta.data$orig.ident=="Blastema_12hpa"] <- "A"
+scd$sample[scd@meta.data$orig.ident=="Blastema_24hpa"] <- "A"
+scd$sample[scd@meta.data$orig.ident=="Blastema_24hpa_c"] <- "B"
+scd$sample[scd@meta.data$orig.ident=="Blastema_48hpa"] <- "A"
+scd$sample[scd@meta.data$orig.ident=="Blastema_48hpa_c"] <- "B"
+scd$sample[scd@meta.data$orig.ident=="Blastema_72hpa"] <- "A"
+scd$sample[scd@meta.data$orig.ident=="Blastema_72hpa_c"] <- "B"
+scd$sample[scd@meta.data$orig.ident=="trunk"] <- "A"
+scd$sample[scd@meta.data$orig.ident=="trunk_c"] <- "B"
+
+table(scd$sample)
+
+# injury state
+scd <- SetIdent(scd, value = "timepoint")
+scd$isinjured <- scd@meta.data$timepoint
+injury.ident <- c("uninjured", "injured", "injured", "injured", "injured")
+names(injury.ident) <- levels(scd)
+scd <- RenameIdents(scd, injury.ident)
+scd$isinjured <- scd@active.ident
+scd <- SetIdent(scd, value = "RNA_snn_res.0.5")
+
+table(scd$isinjured)
+```
+
+# Subclustering
+## Subsetting + re-run of preprocessing
+```{r}
+# store clusters to new slot before overriding them when re-processing again
+scd$res0.5.clusters <- scd$RNA_snn_res.0.5
+
+# subset clusters 0 and 1
+sub.c0.c1 <- subset(scd, idents = c(0, 1))
+
+# clean their data and re-run preprocessing
+sub.c0.c1 <- DietSeurat(sub.c0.c1, scale.data = F) %>%
+  NormalizeData(normalization.method = "LogNormalize", scale.factor = 10000) %>%
+  FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
+  ScaleData() %>%
+  RunPCA(npcs = 50) %>%
+  RunUMAP(reduction = "pca", dims = 1:50) %>%
+  FindNeighbors(reduction = "pca", dims = 1:50) %>%
+  FindClusters(resolution = 0.5)
+
+# merge clusters based on shared expression of SAZ-related genes
+newidents <- c(0,1,2,12,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,12,20)
+names(newidents) <- levels(sub.c0.c1)
+sub.c0.c1 <- RenameIdents(sub.c0.c1, newidents)
+
+# generate log1p transformed counts
+log_assay <- CreateAssayObject(data = sub.c0.c1@assays$RNA@data)
+sub.c0.c1[["logdata"]] <- log_assay
+sub.c0.c1@assays$logdata@data <- log1p(sub.c0.c1@assays$RNA@counts)
+DefaultAssay(sub.c0.c1) <- "logdata"
+
+save(file = "data/c0c1_subset.RData", sub.c0.c1)
+```
+
+## label transfer to main object
+```{r}
+# store subcluster information in new metadata slot called subclustered
+# only transfer relevant subclusters
+subsub.c7.c12 <- subset(sub.c0.c1, idents = c("7", "12"))
+
+scd$subclustered <- as.character(Idents(scd))
+scd$subclustered[Cells(subsub.c7.c12)] <- paste("sub", Idents(subsub.c7.c12), sep = "")
+saveRDS(scd, file = "data/scd.RDS")
+```
