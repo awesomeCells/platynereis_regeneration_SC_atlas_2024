@@ -21,6 +21,15 @@ Includes dimensionality reduction and population clustering.
 ### 3. Additional Seurat processing (03_sc_additional_processing.Rmd)
 Perform log-transformation for better visualisations, and sub-cluster and re-process two clusters of interest.
 
-## Sources and References
+## Data and References
+### Data sources
 Single cell sequencing data (raw): NCBI SRA PRJNA1060254
 Single cell sequencing data (processed seurat object, basically the result of the code of this project): NCBI GEO GSE277281
+
+### References
+1. Stockinger, A. W., Adelmann, L., Fahrenberger, M., Ruta, C., Özpolat, B. D., Milivojev, N., Balavoine, G. & Raible, F. Molecular profiles, sources and lineage restrictions of stem cells in an annelid regeneration model. bioRxiv 2024.07.09.602635 doi:10.1101/2024.07.09.602635
+2. Stuart, T. & Satija, R. Integrative single-cell analysis. Nat. Rev. Genet. 20, 257–272 (2019).
+3. Steger, J., Cole, A. G., Denner, A., Lebedeva, T., Genikhovich, G., Ries, A., Reischl, R., Taudes, E., Lassnig, M. & Technau, U. Single-cell transcriptomics identifies conserved regulators of neuroglandular lineages. Cell Rep. 40, 111370 (2022).
+  
+
+  
