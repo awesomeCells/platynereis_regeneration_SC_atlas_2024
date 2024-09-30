@@ -18,6 +18,9 @@ Raw reads (see below) were mapped against a custom Cellranger (10X genomics, v7.
 Cellranger output files generated in 1. are imported to R and processed as seurat objects. After outlier removal, all objects are then merged and the merged object is processed as one dataset.
 Includes dimensionality reduction and population clustering.
 
+### 3. Additional Seurat processing (03_sc_additional_processing.Rmd)
+Perform log-transformation for better visualisations, and sub-cluster and re-process two clusters of interest.
+
 ## Sources and References
 Single cell sequencing data (raw): NCBI SRA PRJNA1060254
 Single cell sequencing data (processed seurat object, basically the result of the code of this project): NCBI GEO GSE277281
