@@ -1,0 +1,52 @@
+---
+title: "04 Find Cluster Markers"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(openxlsx)
+
+scd <- readRDS(file = "data/scd.RDS")
+```
+
+# Find markers for main clusters
+Find marker genes for all clusters, then merge with best BLAST hit annotation
+
+```{r}
+# find all markers
+markers.scd <- FindAllMarkers(scd, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 1, assay = "RNA", test.use = "wilcox")
+
+# annotate by BLAST hit and arrange
+load("data/xloc_blast_hits.RData")
+
+markers.scd <- markers.scd %>%
+  left_join(xloc.annotations, by = c("gene" = "XLOC")) %>%
+  arrange(cluster, desc(avg_log2FC))
+
+# export xlsx
+write.xlsx(markers.scd, file="data/markers/markers_scd_all_clusters.xlsx", colNames = TRUE)
+```
+
+
+# Find markers for subclusters
+```{r}
+# find markers
+markers.sub7 <- FindMarkers(scd, group.by = "subclustered",ident.1 = "sub7", min.pct = 0.1, only.pos = T)
+markers.sub12 <- FindMarkers(scd, group.by = "subclustered", ident.1 = "sub12", min.pct = 0.1, only.pos = T)
+
+# annotate, order and export
+markers.sub7 <- markers.sub7 %>%
+  rownames_to_column(var = "XLOC") %>%
+  left_join(xloc.annotations, by = c("XLOC" = "XLOC")) %>%
+  arrange(desc(avg_log2FC))
+
+markers.sub12 <- markers.sub12 %>%
+  rownames_to_column(var = "XLOC") %>%
+  left_join(xloc.annotations, by = c("XLOC" = "XLOC")) %>%
+  arrange(desc(avg_log2FC))
+
+write.xlsx(markers.sub7, file="data/markers/markers_scd_sub7.xlsx", colNames = TRUE)
+write.xlsx(markers.sub12, file="data/markers/markers_scd_sub12.xlsx", colNames = TRUE)
+```
