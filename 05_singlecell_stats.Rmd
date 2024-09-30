@@ -1,0 +1,59 @@
+---
+title: "05 single cell stats"
+output: html_notebook
+---
+```{r}
+library(Seurat)
+library(tidyverse)
+library(openxlsx)
+
+scd <- readRDS(file = "data/scd.RDS")
+```
+
+# UMIs/cell comparison
+compare UMIs/cell between post-injury timepoints
+higher UMIs can be a sequencing artefact, but could also be consequence of biological differences (higher RNA content, i.e. hypertranscription)
+```{r}
+# extract data, generate dataframe
+metadata <- scd@meta.data
+idents <- metadata$timepoint
+nCount_RNA <- metadata$nCount_RNA
+counts.df <- data.frame(idents, nCount_RNA)
+
+# perform wilcox.test comparing counts per cell between timepoints
+wilcox.result.0.24 <- wilcox.test(counts.df$nCount_RNA[counts.df$idents == "0hpa"],
+                             counts.df$nCount_RNA[counts.df$idents == "24hpa"],
+                             )
+wilcox.result.24.72 <- wilcox.test(counts.df$nCount_RNA[counts.df$idents == "24hpa"],
+                             counts.df$nCount_RNA[counts.df$idents == "72hpa"],
+                             )
+
+wilcox.result.0.24
+wilcox.result.24.72
+```
+
+## before outlier removal
+as a control, also perform this on the dataset without any outlier removal:
+```{r}
+allcells <- readRDS("data/allcells_notcleaned.RDS")
+
+# extract data, generate dataframe
+metadata <- allcells@meta.data
+idents <- metadata$timepoint
+nCount_RNA <- metadata$nCount_RNA
+counts.df <- data.frame(idents, nCount_RNA)
+
+# perform wilcox.test
+wilcox.result.0.24 <- wilcox.test(counts.df$nCount_RNA[counts.df$idents == "0hpa"],
+                             counts.df$nCount_RNA[counts.df$idents == "24hpa"],
+                             )
+wilcox.result.24.72 <- wilcox.test(counts.df$nCount_RNA[counts.df$idents == "24hpa"],
+                             counts.df$nCount_RNA[counts.df$idents == "72hpa"],
+                             )
+
+wilcox.result.0.24
+wilcox.result.24.72
+```
+
+
+

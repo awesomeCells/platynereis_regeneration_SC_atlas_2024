@@ -33,6 +33,9 @@ Perform log-transformation for better visualisations, and sub-cluster and re-pro
 `04_find_cluster_markers.Rmd`
 Use this to compare gene expression levels between clusters to identify those genes unique to one cluster (markergenes).
 
+### 5. Single Cell stats calculation
+Testing whether UMIs per cell are significantly higher at later stages of regeneration.
+
 ## Data and References
 ### data directory
 `data/`
