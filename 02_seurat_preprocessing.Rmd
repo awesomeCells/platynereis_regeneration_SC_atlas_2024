@@ -1,0 +1,360 @@
+---
+title: "2 Seurat Preprocessing"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+```
+
+# Import and preparation
+## Import and create Seurat objects
+Import all 10X output files and create seurat objects
+```{r}
+# objects with "c" suffix are from replicate B, those without suffix from replicate A
+# cutoff values set to min.cells = 3 and min.features = 200
+
+regen.0hpa.data <- Read10X(data.dir = "data/matrix_files/0hpa_A/filtered_feature_bc_matrix")
+trunk <- CreateSeuratObject(counts = regen.0hpa.data, project = "trunk", min.cells = 3, min.features = 200)
+rm(regen.0hpa.data)
+
+regen.12hpa.data <- Read10X(data.dir = "data/matrix_files/12hpa_A/filtered_feature_bc_matrix")
+regen.12hpa <- CreateSeuratObject(counts = regen.12hpa.data, project = "Blastema_12hpa", min.cells = 3, min.features = 200)
+rm(regen.12hpa.data)
+
+regen.24hpa.data <- Read10X(data.dir = "data/matrix_files/24hpa_A/filtered_feature_bc_matrix")
+regen.24hpa <- CreateSeuratObject(counts = regen.24hpa.data, project = "Blastema_24hpa", min.cells = 3, min.features = 200)
+rm(regen.24hpa.data)
+
+regen.48hpa.data <- Read10X(data.dir = "data/matrix_files/48hpa_A/filtered_feature_bc_matrix")
+regen.48hpa <- CreateSeuratObject(counts = regen.48hpa.data, project = "Blastema_48hpa", min.cells = 3, min.features = 200)
+rm(regen.48hpa.data)
+
+regen.72hpa.data <- Read10X(data.dir = "data/matrix_files/72hpa_A/filtered_feature_bc_matrix")
+regen.72hpa <- CreateSeuratObject(counts = regen.72hpa.data, project = "Blastema_72hpa", min.cells = 3, min.features = 200)
+rm(regen.72hpa.data)
+
+regen.0hpa.c.data <- Read10X(data.dir = "data/matrix_files/0hpa_B/filtered_feature_bc_matrix")
+trunk.c <- CreateSeuratObject(counts = regen.0hpa.c.data, project = "trunk_c", min.cells = 3, min.features = 200)
+rm(regen.0hpa.c.data)
+
+regen.24hpa.c.data <- Read10X(data.dir = "data/matrix_files/24hpa_B/filtered_feature_bc_matrix")
+regen.24hpa.c <- CreateSeuratObject(counts = regen.24hpa.c.data, project = "Blastema_24hpa_c", min.cells = 3, min.features = 200)
+rm(regen.24hpa.c.data)
+
+regen.48hpa.c.data <- Read10X(data.dir = "data/matrix_files/48hpa_B/filtered_feature_bc_matrix")
+regen.48hpa.c <- CreateSeuratObject(counts = regen.48hpa.c.data, project = "Blastema_48hpa_c", min.cells = 3, min.features = 200)
+rm(regen.48hpa.c.data)
+
+regen.72hpa.c.data <- Read10X(data.dir = "data/matrix_files/72hpa_B/filtered_feature_bc_matrix")
+regen.72hpa.c <- CreateSeuratObject(counts = regen.72hpa.c.data, project = "Blastema_72hpa_c", min.cells = 3, min.features = 200)
+rm(regen.72hpa.c.data)
+```
+
+## give cells unique names
+This avoids naming errors later on
+```{r}
+trunk <- RenameCells(trunk, add.cell.id = "trunk")
+trunk.c <- RenameCells(trunk.c, add.cell.id = "trunkC")
+regen.12hpa <- RenameCells(regen.12hpa, add.cell.id = "regen12hpa")
+regen.24hpa <- RenameCells(regen.24hpa, add.cell.id = "regen24hpa")
+regen.24hpa.c <- RenameCells(regen.24hpa.c, add.cell.id = "regen24hpaC")
+regen.48hpa <- RenameCells(regen.48hpa, add.cell.id = "regen48hpa")
+regen.48hpa.c <- RenameCells(regen.48hpa.c, add.cell.id = "regen48hpaC")
+regen.72hpa <- RenameCells(regen.72hpa, add.cell.id = "regen72hpa")
+regen.72hpa.c <- RenameCells(regen.72hpa.c, add.cell.id = "regen72hpaC")
+```
+
+## save pre-outlier removal object
+Merge and store these samples before outlier removal for comparisons:
+```{r}
+allcells <- merge(trunk, y = c(
+  trunk.c, regen.12hpa, regen.24hpa, regen.24hpa.c, regen.48hpa, regen.48hpa.c, regen.72hpa, regen.72hpa.c))
+
+allcells$timepoint <- allcells$orig.ident
+allcells$timepoint[allcells@meta.data$orig.ident=="Blastema_12hpa"] <- "12hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="Blastema_24hpa"] <- "24hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="Blastema_24hpa_c"] <- "24hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="Blastema_48hpa"] <- "48hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="Blastema_48hpa_c"] <- "48hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="Blastema_72hpa"] <- "72hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="Blastema_72hpa_c"] <- "72hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="trunk"] <- "0hpa"
+allcells$timepoint[allcells@meta.data$orig.ident=="trunk_c"] <- "0hpa"
+saveRDS(allcells, file = "data/allcells_notcleaned.RDS")
+```
+
+
+# Outlier removal
+Remove outlier cells based on counts and features (sample by sample for manual, visual inspection)
+The cutoff values below are the ones used for the manuscript.
+
+Set 
+final <- FALSE 
+to find the ideal cutoffs, then confirm and generate the new object by setting 
+final <- TRUE
+
+## Biological Replicate A
+0hpa
+```{r}
+current.sample <- trunk
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 9000 & nFeature_RNA < 3000)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  trunk <- current.sample.sub
+}
+```
+
+12hpa
+```{r}
+current.sample <- regen.12hpa
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 7500 & nFeature_RNA < 2700)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  regen.12hpa <- current.sample.sub
+}
+```
+
+24hpa
+```{r}
+current.sample <- regen.24hpa
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 17000 & nFeature_RNA < 5000)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  regen.24hpa <- current.sample.sub
+}
+```
+
+48hpa
+```{r}
+current.sample <- regen.48hpa
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 22000 & nFeature_RNA < 5000)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  regen.48hpa <- current.sample.sub
+}
+```
+
+72hpa
+```{r}
+current.sample <- regen.72hpa
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 35000 & nFeature_RNA < 6500)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  regen.72hpa <- current.sample.sub
+}
+```
+
+## Biological Replicate B
+
+0hpa
+```{r}
+current.sample <- trunk.c
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 10000 & nFeature_RNA < 2500)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  trunk.c <- current.sample.sub
+}
+```
+
+24hpa
+```{r}
+current.sample <- regen.24hpa.c
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 15000 & nFeature_RNA < 3100)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  regen.24hpa.c <- current.sample.sub
+}
+```
+
+48hpa
+```{r}
+current.sample <- regen.48hpa.c
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 15000 & nFeature_RNA < 3300)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  regen.48hpa.c <- current.sample.sub
+}
+```
+
+72hpa
+```{r}
+current.sample <- regen.72hpa.c
+final <- TRUE
+plot1 <- FeatureScatter(current.sample, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+current.sample.sub <- subset(current.sample, subset = nCount_RNA < 14000 & nFeature_RNA < 3500)
+plot2 <- FeatureScatter(current.sample.sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+cells_before <- ncol(current.sample)
+cells_after <- ncol(current.sample.sub)
+cells_removed <- cells_before - cells_after
+plot1
+plot2
+
+cells_before
+cells_after
+cells_removed
+
+if(final == TRUE) {
+  regen.72hpa.c <- current.sample.sub
+}
+```
+
+# Main preprocessing steps
+Following an approach found in 
+https://github.com/technau/CellReports2022
+
+```{r}
+# merge objects
+scd <- merge(trunk, y = c(trunk.c, regen.12hpa, regen.24hpa, regen.24hpa.c, regen.48hpa, regen.48hpa.c, regen.72hpa, regen.72hpa.c), merge.data = F)
+
+# normalize (across dataset)
+scd <- NormalizeData(scd, normalization.method = "LogNormalize", scale.factor = 10000)
+
+# all samples are also individually normalized here; then variable features are selected and written into a list. 
+list = NULL
+regen.vargenes.list <- SplitObject(scd, split.by = "orig.ident")
+
+for (i in 1:length(regen.vargenes.list)) {
+    regen.vargenes.list[[i]] <- FindVariableFeatures(regen.vargenes.list[[i]], selection.method = "vst", nfeatures = 2000, verbose = FALSE)  
+}
+
+# collate into a single list of unique features and import into the object:
+for (i in 1:length(regen.vargenes.list)) {
+  x <- regen.vargenes.list[[i]]@assays$RNA@var.features
+  list=c(list,x)}
+var.features.list=unique(list)
+
+# How many variable features does the dataset contain across all samples?
+length(var.features.list)
+
+# store them in the variable features slot of the merged object:
+scd@assays$RNA@var.features = var.features.list
+
+# now scale data, based on sample of origin (centers at 0, variance scaled to 1 so all variable genes are weighted equally downstream)
+scd <- ScaleData(scd, features = scd@assays$RNA@var.features, split.by = "orig.ident", do.scale = T, do.center = T)
+
+# calculate principal components; calculate umap; find neighbors
+scd <- RunPCA(scd, npcs = 50)
+scd <- RunUMAP(scd, reduction = "pca", dims = 1:50)
+scd <- FindNeighbors(scd, reduction = "pca", dims = 1:50)
+
+# cluster the dataset
+scd <- FindClusters(scd, resolution = 0.5)
+scd <- SetIdent(scd, value = "RNA_snn_res.0.5")
+
+saveRDS(scd, file = "data/scd.RDS")
+```
