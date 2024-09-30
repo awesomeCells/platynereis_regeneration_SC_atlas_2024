@@ -1,4 +1,4 @@
-# Single Cell RNAseq Data Processing of Platynereis Postrior Regeneration
+# Single Cell RNAseq Data Processing of Platynereis Posterior Regeneration
 
     **Molecular profiles, sources and lineage restrictions of stem cells in an annelid regeneration model**
     Alexander W. Stockinger, Leonie Adelmann, Martin Fahrenberger, Christine Ruta, B. Duygu Özpolat, Nadja Milivojev, Guillaume Balavoine, Florian Raible
