@@ -14,7 +14,9 @@ https://dx.doi.org/10.1101/2024.07.09.602635
 ### 1. Mapping reads with cellranger (01_cellranger.sh)
 Raw reads (see below) were mapped against a custom Cellranger (10X genomics, v7.0.1) reference generated from the Platynereis draft genome (Genbank ID: GCA_026936325.1, annotation version v021)
 
-
+### 2. Seurat preprocessing (02_seurat_preprocessing.Rmd)
+Cellranger output files generated in 1. are imported to R and processed as seurat objects. After outlier removal, all objects are then merged and the merged object is processed as one dataset.
+Includes dimensionality reduction and population clustering.
 
 ## Sources and References
 Single cell sequencing data (raw): NCBI SRA PRJNA1060254
