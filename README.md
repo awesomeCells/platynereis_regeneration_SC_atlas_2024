@@ -12,30 +12,40 @@ https://dx.doi.org/10.1101/2024.07.09.602635
 
 ## How to use this code
 The code can either be used to re-run the entire analysis pipeline (download raw sequencing data, see below, then follow files in order) or to generate plots or perform additional analyses on the processed file.
+Most of it is written in R-markdown and best used in RStudio.
+Packages and versions used can be found in the manuscript methods section.
 
 ## Processing steps
-### 1. Mapping reads with cellranger (01_cellranger.sh)
+### 1. Mapping reads with cellranger
+`01_cellranger.sh`
 Raw reads (see below) were mapped against a custom Cellranger (10X genomics, v7.0.1) reference generated from the Platynereis draft genome (Genbank ID: GCA_026936325.1, annotation version v021)
 
-### 2. Seurat preprocessing (02_seurat_preprocessing.Rmd)
+### 2. Seurat preprocessing
+`02_seurat_preprocessing.Rmd`
 Cellranger output files generated in 1. are imported to R and processed as seurat objects. After outlier removal, all objects are then merged and the merged object is processed as one dataset.
 Includes dimensionality reduction and population clustering.
 
-### 3. Additional Seurat processing (03_sc_additional_processing.Rmd)
+### 3. Additional Seurat processing
+`03_sc_additional_processing.Rmd`
 Perform log-transformation for better visualisations, and sub-cluster and re-process two clusters of interest.
+
+### 4. Find marker genes
+`04_find_cluster_markers.Rmd`
+Use this to compare gene expression levels between clusters to identify those genes unique to one cluster (markergenes).
 
 ### 5. Single Cell stats calculation
 Testing whether UMIs per cell are significantly higher at later stages of regeneration.
 
 ## Data and References
-### /data dir
+### data directory
+`data/`
 contains smaller annotation files and example gene tables for plotting.
 
 ### Additional data sources
 Single cell sequencing data (raw): NCBI SRA PRJNA1060254
-->  data/scd.RDS
+->  `data/scd.RDS`
 Single cell sequencing data (processed seurat object, basically the result of the code of this project): NCBI GEO GSE277281
--> data/matrix_files/0hpa_A/filtered_feature_bc_matrix etc
+-> `data/matrix_files/0hpa_A/filtered_feature_bc_matrix` etc
 
 ### References
 1. Stockinger, A. W., Adelmann, L., Fahrenberger, M., Ruta, C., Özpolat, B. D., Milivojev, N., Balavoine, G. & Raible, F. Molecular profiles, sources and lineage restrictions of stem cells in an annelid regeneration model. bioRxiv 2024.07.09.602635 doi:10.1101/2024.07.09.602635
