@@ -36,6 +36,10 @@ Use this to compare gene expression levels between clusters to identify those ge
 ### 5. Single Cell stats calculation
 Testing whether UMIs per cell are significantly higher at later stages of regeneration.
 
+### 6. Cytotrace
+Calculates "cell differentiation potential" as proxy for identifying less differentiated (i.e. more stem-like) cells. 
+See https://cytotrace.stanford.edu for reference and code.
+
 ## Data and References
 ### data directory
 `data/`
