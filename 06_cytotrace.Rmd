@@ -1,0 +1,184 @@
+---
+title: "06_cytotrace"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(CytoTRACE)
+library(openxlsx)
+library(tidyverse)
+library(SCpubr)
+library(ggplot2)
+
+scd <- readRDS("data/scd.RDS")
+load("data/xloc_blast_hits.RData")
+
+cytotrace.all <- readRDS("data/cytotrace_all.RDS")
+```
+
+# Prepare data
+We merge some already connected clusters of similar cell types first, as cytotrace is calculated per cluster.
+
+```{r}
+clusnames.new <- as.character(
+  c(0:2,
+    "3_6_12",
+    "4_16",
+    5,
+    "3_6_12",
+    7,
+    "8_14",
+    9:11,
+    "3_6_12",
+    13,
+    "8_14",
+    15,
+    "4_16",
+    17:37)
+  )
+
+names(clusnames.new) <- levels(scd)
+scd <- RenameIdents(scd, clusnames.new)
+
+scd$clus.merged <- scd@active.ident
+scd <- SetIdent(scd, value = "clus.merged")
+```
+
+# Run CytoTrace
+```{r, eval=FALSE}
+cytotrace.all <- list()
+clusters <- unique(scd$clus.merged)
+for (clus in clusters) {
+  cluster.sub <- subset(scd, idents = clus) # subset one cluster
+  cluster.matrix <- as.matrix(GetAssayData(cluster.sub, 
+                                           assay = "RNA", 
+                                           slot = "counts")) # extract counts
+  cytotrace.data <- CytoTRACE(cluster.matrix, enableFast = TRUE, ncores = 8) # run CT on 8 cores
+  cytotrace.all[[clus]] <- cytotrace.data # store result to list
+}
+ 
+saveRDS(cytotrace.all, file = "data/cytotrace_all.RDS") # saves cytotrace results
+```
+
+# Transfer cytotrace to seurat metadata
+```{r}
+clusters <- unique(scd$clus.merged)
+
+# loop through list of cytotrace results, store per cluster
+for (cluster in clusters) {
+  cells_in_cluster <- WhichCells(scd, idents = cluster)
+  cytotrace_values <- cytotrace.all[[as.character(cluster)]]$CytoTRACE
+  scd@meta.data[cells_in_cluster, "cytotrace"] <- cytotrace_values
+}
+
+# quick glance at the data
+FeaturePlot(scd, features = "cytotrace")
+DimPlot(scd, group.by = "timepoint", shuffle = T)
+```
+
+store new scd with cytotrace
+```{r}
+scd <- SetIdent(scd, value = "RNA_snn_res.0.5")
+save(scd, file = "data/scd.RData")
+```
+
+# Genes correlated with CytoTRACE
+i.e. up/downregulated in cells of higher developmental potential.
+```{r}
+df.list <- list()
+for(cluster in names(cytotrace.all)) {
+  ct.gene <- cytotrace.all[[cluster]]$cytoGenes
+  gene_names <- names(ct.gene)
+  df <- tibble(gene_name = gene_names, !!cluster := ct.gene)
+  df.list[[cluster]] <- df
+}
+
+ct.genes.all <- reduce(df.list, full_join, by = "gene_name")
+```
+
+annotate with BLAST hits
+```{r}
+ct.genes.ann <- ct.genes.all %>%
+  left_join(xloc.annotations, by = c("gene_name" = "XLOC"))
+```
+
+annotate with gene IDs for GO terms
+(GO term conversion information in methods section of manuscript)
+```{r}
+GO.droso <- read.delim(file = "/Users/alexanderstockinger/Informatics/2024_atlas_playground/data/GOterms_pdu_2024/XLOC2up_Droso.tab", header = F, col.names = c("xloc", "go_droso"))
+GO.droso$xloc <- sub("_", "-", GO.droso$xloc)
+
+GO.hsap <- read.delim(file = "/Users/alexanderstockinger/Informatics/2024_atlas_playground/data/GOterms_pdu_2024/XLOC2up_Homo.tab", header = F, col.names = c("xloc", "go_human"))
+GO.hsap$xloc <- sub("_", "-", GO.hsap$xloc)
+
+ct.genes.ann <- ct.genes.ann %>%
+  left_join(GO.droso, by = c("gene_name" = "xloc")) %>%
+  left_join(GO.hsap, by = c("gene_name" = "xloc"))
+```
+
+Reorder columns
+```{r}
+clusnames.un <- as.character(
+  c("gene_name",
+    "hits",
+    "go_droso",
+    "go_human",
+    0:2,
+    "3_6_12",
+    "4_16",
+    5,
+    7,
+    "8_14",
+    9:11,
+    13,
+    15,
+    17:37)
+  )
+
+ct.genes <- ct.genes.ann[, clusnames.un]
+```
+
+save and export
+```{r}
+write.xlsx(ct.genes, file="data/cytotrace_all_genes.xlsx", colNames = TRUE)
+save(ct.genes, file = "data/genes.with.goterms.RData")
+```
+
+# Plotting
+## Main umap with cytotrace
+```{r}
+p1 <- SCpubr::do_FeaturePlot(scd, 
+                             features = "cytotrace", order = F,
+                             pt.size = 0.1, legend.position = "bottom", legend.type = "colorbar") + 
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1)
+p1
+
+ggsave(p1, filename = "plots/cytotrace/cytotrace_umap_c.png",
+       width = 15, height = 12, units = "cm")
+```
+
+## subclusters with cytotrace
+transfer cytotrace info:
+```{r}
+cells_in_cluster <- WhichCells(scd, idents = cluster)
+  cytotrace_values <- cytotrace.all[[as.character(cluster)]]$CytoTRACE
+  scd@meta.data[cells_in_cluster, "cytotrace"] <- cytotrace_values
+  
+  
+cells.use <- WhichCells(scd, idents = c("0", "1"))
+sub.c0.c1$cytotrace <- scd$cytotrace[cells.use]
+```
+
+```{r}
+# load(file = "data/c0c1_subset.RData")
+SCpubr::do_DimPlot(sub.c0.c1, pt.size = 0.2, legend.position = "right") + 
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1)
+
+SCpubr::do_FeaturePlot(scd, features = "cytotrace",
+                       pt.size = 0.2, legend.position = "right") + 
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1)
+```
+
+
+
