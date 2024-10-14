@@ -1,0 +1,188 @@
+---
+title: "07_doublet_prediction"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(DoubletFinder)
+library(tidyverse)
+library(openxlsx)
+library(patchwork)
+library(SCpubr)
+
+load(file = "data/scd.RData")
+# output stored in "data/scd_doublet.RDS"
+# also saved in new main scd.RData file
+```
+
+Here I will try to identify and flag potential doublet cells.
+This is a benchmarking of available methods:
+https://www.cell.com/cell-systems/pdf/S2405-4712(20)30459-2.pdf
+
+I will go with DoubletFinder as it is compatible with Seurat and performed best in the benchmarking above.
+https://github.com/chris-mcginnis-ucsf/DoubletFinder
+
+# pre-processing all samples individually
+Doublet detection has to be performed on each dataset invidually and requires a base level of pre-processing, so we will run the default pre-processing steps on each sample within the dataset first. 
+
+```{r}
+scd.split <- SplitObject(scd, split.by = "orig.ident") %>% 
+  map(~ .x %>%
+        NormalizeData(normalization.method = "LogNormalize", scale.factor = 10000) %>%
+        FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+        ScaleData() %>%
+        RunPCA() %>%
+        RunUMAP(dims = 1:30) %>%
+        FindNeighbors(dims = 1:30) %>%
+        FindClusters(resolution = 0.4))
+```
+
+# Determine pk value
+This value determines the neighborhood size and has to be identified manually for each dataset.
+
+## parameter sweep
+```{r}
+sweep.stats.list <- list()
+pk.list <- list()
+for (i in 1:length(scd.split)) {
+  seu_temp <- scd.split[[i]]
+  sweep.res.list <- paramSweep_v3(seu_temp, 
+                                  sct = FALSE, PCs = 1:30, num.cores = 4)
+  sweep.stats <- summarizeSweep(sweep.res.list, GT = FALSE)
+  sweep.stats.list[[i]] <- sweep.stats
+  pk.list[[i]] <- find.pK(sweep.stats)
+}
+```
+
+## select optimal pk
+This is done manually, selecting a local maximum among the BCmetrics, opting for lower pk values when closely matched.
+This script iterates through all values; manually enter the identified optimal numbers in the list in the chunk below.
+```{r}
+for (i in 1:length(pk.list)) {
+  plot(x = as.numeric(as.character(pk.list[[i]]$pK)), y = as.numeric(pk.list[[i]]$BCmetric), 
+       pch = 16, col = "#41b6c4", cex = 0.75, xlab="pK", ylab="BCmetric")
+    lines(x = as.numeric(as.character(pk.list[[i]]$pK)), y = pk.list[[i]]$BCmetric, col = "#41b6c4")
+  plot.new()
+  pk_results <- pk.list[[i]] %>%
+    arrange(desc(BCmetric)) %>% 
+    select(BCmetric, pK) %>% 
+    slice_head(n = 10)
+  print(pk_results)
+}
+```
+
+Selected pK values used for my analysis:
+```{r}
+pk.selection <- c(0.01, 0.3, 0.005, 0.005, 0.3, 0.26, 0.21, 0.27, 0.29)
+```
+
+# Determine expected doublet numbers
+For this, we first need to
+
+## Determine expected % doublets
+10X Chromium has predicted doublet rates based on cell suspension density in the microfluidics system. Below is a link to the official reference table from the manufacturer:
+
+https://kb.10xgenomics.com/hc/en-us/articles/360059124751-Why-is-the-multiplet-rate-different-for-the-Next-GEM-Single-Cell-3-LT-v3-1-assay-compared-to-other-single-cell-applications
+
+```{r}
+cell_counts <- sapply(scd.split, function(x) length(Cells(x)))
+cell_counts
+```
+
+These are the expected doublet rates given the cells per sample:
+```{r}
+perclist <- c(0.053, 0.068, 0.053, 0.061, 0.08, 0.068, 0.068, 0.08, 0.08)
+```
+
+## model predictable doublets
+exclude expected homotypic doublets, as these can not be detected by the software.
+These are estimated based on cluster size.
+
+```{r}
+nExp_list <- list()
+for (i in 1:length(scd.split)) {
+  seu_temp <- scd.split[[i]]
+  clusters <- seu_temp$seurat_clusters
+  homotypic.prop <- modelHomotypic(clusters)
+  nExp_poi <- round(as.numeric(perclist[[i]])*nrow(seu_temp@meta.data))
+  nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+  nExp_list[[i]] <- nExp_poi.adj
+}
+```
+
+# Predict Doublets
+The main algorithm that simulates what doublets would look like and then checks whether cells of the dataset would cluster with those simulated doublets.
+```{r}
+for (i in 1:length(scd.split)) {
+  scd.split[[i]] <- doubletFinder_v3(scd.split[[i]], 
+                                     PCs = 1:30, pN = 0.25, 
+                                     pK = pk.selection[[i]], 
+                                     nExp = nExp_list[[i]])
+}
+```
+
+## Transfer predictions to scd file
+
+```{r}
+# first, rename metadata slots for easier readability
+scd.split <- lapply(scd.split, function(x) {
+  doublet_score_col_name <- grep("^pANN", colnames(x@meta.data), value = TRUE)
+  if(length(doublet_score_col_name) == 1) {
+    names(x@meta.data)[names(x@meta.data) == doublet_score_col_name] <- "doublet_scores"
+  } else {
+    stop("Multiple or no 'pANN' columns found.")
+  }
+  
+  return(x)
+})
+
+# next, transfer to metadata of scd object
+scd.split <- lapply(scd.split, function(x) {
+  isdoublet_cols <- grep("^DF.classifications", colnames(x@meta.data), value = TRUE)
+  if(length(isdoublet_cols) == 1) {
+    names(x@meta.data)[names(x@meta.data) == isdoublet_cols] <- "isdoublet"
+  } else {
+    stop("Multiple or no doublet classification columns found.")
+  }
+  
+  return(x)
+})
+
+```
+
+```{r}
+# merge to single seurat object
+scd.merged <- Reduce(function(x, y) merge(x, y), scd.split)
+
+# transfer doublet score + classifications to main seurat object
+scd$isdoublet <- as.character(scd$orig.ident)
+scd$isdoublet <- as.character(scd.merged$isdoublet)
+
+scd$doublet_scores <- as.character(scd$orig.ident)
+scd$doublet_scores <- as.numeric(scd.merged$doublet_scores)
+
+saveRDS(scd, file = "data/scd.RDS")
+```
+
+% of doublets per cluster
+```{r}
+doublet_percentages <- scd@meta.data %>%
+  group_by(res0.5.clusters) %>%
+  summarise(
+    TotalCells = n(),
+    DoubletCount = sum(isdoublet == "Doublet", na.rm = TRUE),
+    PercentDoublets = (DoubletCount / TotalCells) * 100
+  )
+doublet_percentages
+write_csv(doublet_percentages, file = "data/doublet_table.csv")
+```
+
+# transfer data to main SCD
+```{r}
+scd$isdoublet <- scd_doublet$isdoublet
+scd$doubletscore <- as.numeric(scd_doublet$doublet_scores)
+
+save(scd, file = "data/scd.RData")
+```
+

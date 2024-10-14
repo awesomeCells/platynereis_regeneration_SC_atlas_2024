@@ -34,11 +34,17 @@ Perform log-transformation for better visualisations, and sub-cluster and re-pro
 Use this to compare gene expression levels between clusters to identify those genes unique to one cluster (markergenes).
 
 ### 5. Single Cell stats calculation
+`05_singlecell_stats.Rmd`
 Testing whether UMIs per cell are significantly higher at later stages of regeneration.
 
 ### 6. Cytotrace
+`06_cytotrace.Rmd`
 Calculates "cell differentiation potential" as proxy for identifying less differentiated (i.e. more stem-like) cells. 
 See https://cytotrace.stanford.edu for reference and code.
+
+### 7. Doublet Prediction
+`07_doublet_prediction.Rmd`
+Cell doublets are common technical artifacts in single cell sequencing experiments. Here I run code to predict cells that are likely doublets, using DoubletFinder (https://github.com/chris-mcginnis-ucsf/DoubletFinder).
 
 ## Data and References
 ### data directory
@@ -55,6 +61,9 @@ Single cell sequencing data (processed seurat object, basically the result of th
 1. Stockinger, A. W., Adelmann, L., Fahrenberger, M., Ruta, C., Özpolat, B. D., Milivojev, N., Balavoine, G. & Raible, F. Molecular profiles, sources and lineage restrictions of stem cells in an annelid regeneration model. bioRxiv 2024.07.09.602635 doi:10.1101/2024.07.09.602635
 2. Stuart, T. & Satija, R. Integrative single-cell analysis. Nat. Rev. Genet. 20, 257–272 (2019).
 3. Steger, J., Cole, A. G., Denner, A., Lebedeva, T., Genikhovich, G., Ries, A., Reischl, R., Taudes, E., Lassnig, M. & Technau, U. Single-cell transcriptomics identifies conserved regulators of neuroglandular lineages. Cell Rep. 40, 111370 (2022).
+4. Gulati, G. S., Sikandar, S. S., Wesche, D. J., Manjunath, A., Bharadwaj, A., Berger, M. J., Ilagan, F., Kuo, A. H., Hsieh, R. W., Cai, S., Zabala, M., Scheeren, F. A., Lobo, N. A., Qian, D., Yu, F. B., Dirbas, F. M., Clarke, M. F. & Newman, A. M. Single-cell transcriptional diversity is a hallmark of developmental potential. Science 367, 405–411 (2020).
+5. McGinnis, C. S., Murrow, L. M. & Gartner, Z. J. DoubletFinder: Doublet Detection in Single-Cell RNA Sequencing Data Using Artificial Nearest Neighbors. Cell Syst. 8, 329-337.e4 (2019).
+  
   
 
   
