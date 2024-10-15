@@ -58,12 +58,19 @@ Cell doublets are common technical artifacts in single cell sequencing experimen
 
 As quality check, I compared bulk and single cell transcriptome time series.
 
+### 9. Generating Plots
+`09_plotting.Rmd`
+
+Contains the code to generate the plots used in the manuscript.
+Either run steps 1-8 before, or directly download the already processed seurat object (see below) to the data directory to use this code.
+
 ## Data and References
 
 ### data directory
 `data/`
 
-contains smaller annotation files and example gene tables for plotting.
+contains smaller annotation files and example gene tables for plotting. 
+Add downloaded files (see below) to this directory.
 
 ### Data depository
 Single cell sequencing data (raw): `NCBI SRA PRJNA1060254`
