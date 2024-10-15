@@ -1,0 +1,435 @@
+---
+title: "09_plotting"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(ggplot2)
+library(SCpubr)
+library(openxlsx)
+library(dplyr)
+
+load("data/scd.RData")
+load("data/c0c1_subset.RData")
+```
+
+# Main Figures
+## Figure 1
+### 1b) merged single cell regeneration atlas
+```{r}
+# define the colors
+cols <- c("0"="lightcyan",
+          "1" = "mistyrose",
+          "2" = "pink",
+          "3" = "salmon",
+          "4" = "darkolivegreen3",
+          "5" = "yellow",
+          "6" = "salmon1",
+          "7" = "orchid2",
+          "8" = "salmon2",
+          "9" = "yellow2",
+          "10" = "pink1",
+          "11" = "yellow3",
+          "12" = "tomato3",
+          "13" = "gold",
+          "14" = "tomato1",
+          "15" = "red3",
+          "16" = "darkolivegreen1", 
+          "17" = "pink2",
+          "18" = "khaki1",
+          "19" = "skyblue1",
+          "20" = "khaki2",
+          "21" = "seagreen",
+          "22" = "mistyrose3",
+          "23" = "steelblue1", 
+          "24" = "purple1",
+          "25" = "grey90",
+          "26" = "goldenrod1",
+          "27" = "steelblue2",
+          "28" = "aquamarine1",
+          "29" = "grey93",
+          "30" = "lightcyan3",
+          "31" = "steelblue4",
+          "32" = "cyan",
+          "33" = "darkturquoise",
+          "34" = "slateblue2",
+          "35" = "grey80",
+          "36" = "gold2",
+          "37" = "peachpuff")
+
+
+names(cols) <- paste(0:37, sep = "")
+
+SCpubr::do_DimPlot(scd, colors.use = cols,
+                   pt.size = 0.2, shuffle = T, legend.position = "none", label = T, label.box = F, label.size = 4, repel = F, label.color = "black") + 
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1)
+# legend was plotted independently to maintain aspect ratio
+
+ggsave(filename = "plots/umap/f1_b_annotated_clusters.png", width = 20, height = 20, units = "cm")
+```
+
+### 1c) merged timepoint contribution
+```{r}
+SCpubr::do_DimPlot(scd, pt.size = 0.1, group.by = "timepoint", shuffle = T, legend.position = "left") & theme(aspect.ratio = 1)
+ggsave(filename = "plots/umap/f1_c_umap_timepoint.png", width = 20, height = 20, units = "cm", dpi = 300)
+```
+
+### 1d) and all other gene expression featureplots
+For featureplots of gene expression, a simple loop was used. Genes of interest are first loaded, then checked against expressed transcripts (removing those not expressed at all); plots are then generated in a loop for each gene, either as single umap or split by metadata variables such as the regeneration timepoint.
+
+Basic settings
+```{r}
+legend.position <- "right" # position of the legend ("none" for no legend, or "right", "left")
+save.plot <- TRUE # save the plot (TRUE or FALSE)
+save.dir <- "plots/umap/" # where to save your plots
+
+# Set which type of plot (merged, split by time, split by injury state) you want (multiple selection possible)
+make.merged <- TRUE
+make.splitby.timepoint <- TRUE
+make.splitby.isinjured <- TRUE
+```
+
+Import a list of features to plot and filter for those expressed in the dataset
+```{r}
+excel.path <- "data/genelist.xlsx"
+
+# make sure your file has columns labeled "gene" and "xloc"
+# this script also tells you which genes (if any) are not expressed in the dataset and removes them from the list
+
+
+#######################################################################################
+# read in gene list
+genelist <- read.xlsx(xlsxFile = excel.path, colNames = T, rowNames = F)
+
+# determine expressed features (otherwise loop fails with xloc not expressed)
+features.all <- GetAssayData(scd, slot="data", assay="logdata")
+features.sums <- rowSums(features.all>0)
+features.expressed <- names(features.sums[features.sums>0])
+
+# subset expressed features
+genelist.sub <- genelist %>%
+  filter(xloc %in% features.expressed)
+
+# features not found:
+notfound <- setdiff(genelist$xloc, genelist.sub$xloc)
+print(notfound)
+```
+
+```{r}
+for(i in 1:length(genelist.sub$xloc)) {
+  xloc <- genelist.sub$xloc[i]
+  genename <- genelist.sub$gene[i]
+  
+  print(paste(
+    "currently plotting ", genename, " - gene ", i, " out of ", length(genelist.sub$xloc), sep = ""
+  ))
+  
+  if (make.merged == TRUE) {
+    p1 <- SCpubr::do_FeaturePlot(scd, reduction = "umap", features = xloc, order = T, assay = "logdata", 
+                       pt.size = 0.1, 
+                       legend.position = legend.position, legend.type = "normal", legend.title = "",
+                       use_viridis = TRUE, viridis.palette = "magma") &
+    theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1) &
+  ggtitle(label = genename)
+    ggsave(p1, filename = paste(save.dir, "ftplot_", genename, ".png", sep = ""),
+           width = 15, height = 12, units = "cm")
+  }
+  
+  if (make.splitby.timepoint == TRUE) {
+    p1 <- SCpubr::do_FeaturePlot(scd, reduction = "umap", features = xloc, order = T, assay = "logdata", 
+                       pt.size = 0.1, 
+                       legend.position = legend.position, legend.type = "normal", legend.title = "",
+                       use_viridis = TRUE, viridis.palette = "magma",
+                       split.by = "timepoint", ncol = 5) &
+    theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1) &
+  ggtitle(label = genename)
+    ggsave(p1, filename = paste(save.dir, "timepoint_", genename, ".png", sep = ""),
+           width = 50, height = 12, units = "cm")
+  }
+  
+  if (make.splitby.isinjured == TRUE) {
+    p1 <- SCpubr::do_FeaturePlot(scd, reduction = "umap", features = xloc, order = T, assay = "logdata", 
+                       pt.size = 0.1, 
+                       legend.position = legend.position, legend.type = "normal", legend.title = "",
+                       use_viridis = TRUE, viridis.palette = "magma",
+                       split.by = "isinjured", ncol = 2) &
+    theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1) &
+  ggtitle(label = genename)
+    ggsave(p1, filename = paste(save.dir, "isinjured_", genename, ".png", sep = ""),
+           width = 25, height = 12, units = "cm")
+  }
+}
+```
+
+### 1i) Cytotrace on main umap
+```{r}
+SCpubr::do_FeaturePlot(scd, 
+                       features = "cytotrace",
+                       order = F, use_viridis = T, viridis.palette = "viridis",
+                       plot_cell_borders = T, pt.size = 0.1,
+                       legend.position = "right", legend.type = "normal", legend.title = "cytotrace") +
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1) +
+  ggtitle("cytotrace values")
+
+ggsave(filename = "plots/cytotrace_all_clusters.png", width = 20, height = 18, units = "cm", dpi = 300)
+```
+
+## Figure 2
+Figure 2g was generated with Graphpad Prism (see methods section of manuscript)
+
+# Supplementary Figures
+## Suppl. Figure 1
+### s1c) bulk vs sc correlation
+See 08_bulk_sc_comparison.Rmd
+
+## Suppl. Figure 2
+### s2a-c) replicate contribution
+```{r}
+# a & b - split by replicate
+SCpubr::do_DimPlot(scd, split.by = "sample", pt.size = 0.1, group.by = "sample") & theme(aspect.ratio = 1)
+ggsave(filename = "plots/umap/s2_a_b_splitbysample.png", width = 30, height = 15, units = "cm", dpi = 300)
+
+# c - merged (colored by replicate)
+SCpubr::do_DimPlot(scd, group.by = "sample", pt.size = 0.1) & theme(aspect.ratio = 1)
+ggsave(filename = "plots/umap/s2_c_groupbysample.png", width = 15, height = 15, units = "cm", dpi = 300)
+
+```
+
+### s2d-e) cluster contribution by replicate and timepoint
+```{r}
+p1 <- SCpubr::do_BarPlot(scd, split.by = "RNA_snn_res.0.5", group.by = "sample", position = "fill", xlab = "Clusters", ylab = "% contribution of replicates")
+p1
+
+ggsave(filename = "plots/barplot_replicates_cluster.png", plot = p1, dpi = "print")
+
+p1 <- SCpubr::do_BarPlot(scd, split.by = "RNA_snn_res.0.5", group.by = "timepoint", position = "fill", xlab = "Clusters", ylab = "contribution of timepoint")
+p1
+
+ggsave(filename = "plots/barplot_timepoint_cluster.png", plot = p1, dpi = "print")
+```
+
+## Suppl. Figure 3
+
+### s3g) UMIs per cell over time
+```{r}
+SCpubr::do_GeyserPlot(scd, features = "nCount_RNA", order_by_mean = F, 
+                      legend.position = "right", legend.type = "normal", use_viridis = T, viridis.palette = "viridis", 
+                      jitter = 0.3,
+                      group.by = "timepoint", pt.size = 0.1)
+ggsave(filename = "plots/other/s3_e_counts_geysir.png", width = 7, height = 5)
+```
+Statistics were calculated in 05_singlecell_stats and added to the plot manually.
+
+### s3h-k) scatter plots doublet scores vs cytotrace and UMIs
+
+Generate main ggplot objects
+```{r}
+# extract required data
+plot_c0 <- subset(scd, idents = "0")@meta.data %>% 
+  dplyr::select(timepoint, doubletscore, cytotrace, isdoublet, nCount_RNA)
+
+# shuffle them for random order plotting
+plot_c0 <- plot_c0[sample(nrow(plot_c0)), ]
+
+# plot with isdoublet as color, by umi + time
+plot_c1 <- subset(scd, idents = "1")@meta.data %>% 
+  dplyr::select(timepoint, doubletscore, cytotrace, isdoublet, nCount_RNA)
+
+# shuffle them for random order plotting
+plot_c1 <- plot_c1[sample(nrow(plot_c1)), ]
+```
+
+UMIs v doubletscore
+```{r}
+ggplot(plot_c0, aes(x = nCount_RNA, y = doubletscore, color = factor(isdoublet))) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_color_viridis_d() +
+  labs(x = "UMIs", y = "doublet score", color = "") +
+  theme_minimal() +
+  ggtitle("Cluster 0, UMIs v. doublet score")
+ggsave(filename = "plots/c0_umi_v_doublet.png", width = 15, height = 10, units = "cm", dpi = 300)
+
+ggplot(plot_c1, aes(x = nCount_RNA, y = doubletscore, color = factor(isdoublet))) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_color_viridis_d() +
+  labs(x = "UMIs", y = "doublet score", color = "") +
+  theme_minimal() +
+  ggtitle("Cluster 1, UMIs v. doublet score")
+ggsave(filename = "plots/c1_umi_v_doublet.png", width = 15, height = 10, units = "cm", dpi = 300)
+
+```
+
+cytotrace v doubletscore
+```{r}
+ggplot(plot_c0, aes(x = cytotrace, y = doubletscore, color = factor(isdoublet))) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_color_viridis_d() +
+  labs(x = "cytotrace", y = "doublet score", color = "") +
+  theme_minimal() +
+  ggtitle("Cluster 0, cytotrace v. doublet score")
+ggsave(filename = "plots/c0_cytotrace_v_doublet.png", width = 15, height = 10, units = "cm", dpi = 300)
+
+ggplot(plot_c1, aes(x = cytotrace, y = doubletscore, color = factor(isdoublet))) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  scale_color_viridis_d() +
+  labs(x = "cytotrace", y = "doublet score", color = "") +
+  theme_minimal() +
+  ggtitle("Cluster 1, cytotrace v. doublet score")
+ggsave(filename = "plots/c1_cytotrace_v_doublet.png", width = 15, height = 10, units = "cm", dpi = 300)
+```
+
+## Suppl. Figure 4
+### s4a) col6a vs cytoTRACE 
+Universal code for list of genes of interest to be plotted against cytoTRACE:
+
+```{r}
+# subset cluster of interest (cytotrace only valid per cluster!)
+scd.sub <- subset(scd, idents = "0")
+
+# genes to plot
+genelist <- read.xlsx("cytotrace_genelist.xlsx", colNames = T, rowNames = F)
+```
+
+
+```{r}
+# fetch cytotrace and time values
+cyto.values <- scd.sub@meta.data$cytotrace
+timepoints <- scd.sub$timepoint
+
+for(i in 1:length(genelist$gene)) {
+gene.of.interest <- genelist$xloc[[i]]
+genename <- genelist$gene[[i]]
+
+gene.ex <- FetchData(scd.sub, vars = gene.of.interest, slot = "counts")
+
+plot.data <- data.frame(
+  expression = gene.ex[[gene.of.interest]],
+  cytotrace = cyto.values,
+  timepoint = timepoints
+)
+
+set.seed(123)
+plot.data <- plot.data[sample(nrow(plot.data)), ]
+
+p1 <- ggplot(plot.data, aes(x = cytotrace, y = expression, color = timepoint)) + 
+  geom_jitter(alpha = 0.6, size = 0.5, width = 0) + 
+  theme_minimal() + 
+  labs(x = "CytoTRACE", 
+       y = paste("expression of ", genename, sep = ""), 
+       title = paste("Expression of", genename, "vs. CytoTRACE value, cluster 0")) +
+  scale_color_viridis_d()
+
+ggsave(p1, filename = paste("plots/cytotrace/c0_cytotr_v_", genename ,".png", sep = ""), width = 15, height = 10, units = "cm", dpi = 300)
+
+}
+```
+
+## Suppl. Figure 5
+
+### s5a,b) c0 c1 and subclusters
+```{r}
+load(file = "data/c0c1_subset.RData")
+
+# s5a plot the "original" cluster identities from the whole dataset
+SCpubr::do_DimPlot(sub.c0.c1, group.by = "res0.5.clusters", pt.size = 0.2, legend.position = "right", 
+                   colors.use = c("0" = "lightcyan", "1" = "mistyrose")) + 
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1)
+ggsave(filename = "plots/umap/s5_a_subset_c0c1colors.png", width = 15, height = 12, units = "cm")
+
+# s5b plot the two subclusters of interest
+subc.tmp <- sub.c0.c1
+# rename idents accordingly
+idents.new <- c("other", "other", "other",
+                "subcluster 12",
+                "other", "other", "other",
+                "subcluster 7",
+                rep("other", 11))
+names(idents.new) <- levels(subc.tmp)
+subc.tmp <- RenameIdents(subc.tmp, idents.new)
+
+SCpubr::do_DimPlot(subc.tmp, pt.size = 0.2, legend.position = "right", 
+                   colors.use = c("subcluster 12" = "navy", "subcluster 7" = "firebrick3", "other" = "gray95")) + 
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1)
+ggsave(filename = "plots/umap/s5_b_subset_sub7_sub12_colors.png", width = 15, height = 12, units = "cm")
+```
+
+### s5c) dotplot
+```{r}
+genes <- list("GMP/SAZ related" = c("XLOC-037912", "XLOC-026648", "XLOC-005003", "XLOC-052426", "XLOC-004670"), #hox3 piwi vasa nanos myc
+              "prolif. related" = c("XLOC-025800", "XLOC-026926", "XLOC-024089"), #pcna, cycb1, cycb3
+              "epigen. related" = c("XLOC-050017", "XLOC-038208", "XLOC-004637", "XLOC-001297", "XLOC-003547")) 
+
+#chd345b dnmt1 hdac3 hdac8 chd1_2
+SCpubr::do_DotPlot(sub.c0.c1, features = genes, cluster.idents = F, use_viridis = T, viridis.palette = "magma", assay = "logdata")
+
+# gene ID labels (x-axis) were manually replaced with gene names
+ggsave(filename = "plots/other/s5_c_dotplot.png", width = 10, height = 6)
+```
+
+### s5d-p) subset featureplots
+same as f1d), just using the subset object.
+
+### s5q,r) featureplot subset with cytotrace and umis
+
+Transfer cytotrace to subset object
+```{r}
+sub.c0.c1$cytotrace <- as.numeric(scd$cytotrace[colnames(sub.c0.c1)])
+combined.obj$annotation[colnames(subset.obj)] <- as.character(subset.obj$annotation)
+combined.obj$annotation[colnames(subset.obj)] <- as.character(subset.obj$annotation)
+```
+
+Plot Cytotrace
+```{r}
+SCpubr::do_FeaturePlot(sub.c0.c1, 
+                       features = "cytotrace",
+                       order = T,
+                       use_viridis = T, viridis.palette = "viridis", viridis.direction = 1,
+                       plot_cell_borders = T, pt.size = 0.1,
+                       legend.position = "right", legend.type = "normal", legend.title = "cytotrace") +
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1) +
+  ggtitle("cytotrace")
+
+ggsave(filename = "plots/sub_0_1_cytotrace.png", width = 12, height = 12, units = "cm", dpi = 300)
+```
+
+Plot umis
+```{r}
+SCpubr::do_FeaturePlot(sub.c0.c1, 
+                       features = "nCount_RNA",
+                       order = T,
+                       use_viridis = T, viridis.palette = "viridis", viridis.direction = 1,
+                       plot_cell_borders = T, pt.size = 0.1,
+                       legend.position = "right", legend.type = "normal", legend.title = "UMIs") +
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1) +
+  ggtitle("UMIs/cell")
+
+ggsave(filename = "plots/sub_0_1_umis.png", width = 12, height = 12, units = "cm", dpi = 300)
+```
+
+
+### s5s) main umap with c0, c1 and respective subclusters annotated
+```{r}
+# temporally rename clusters for easier plotting
+
+idents.new <- c("0", "1", rep("other", 36), "sub12", "sub7")
+scd.tmp <- SetIdent(scd, value = "subclustered")
+Idents(scd.tmp) <- factor(x = Idents(scd.tmp), levels = sort(levels(scd.tmp)))
+names(idents.new) <- levels(scd.tmp)
+scd.tmp <- RenameIdents(scd.tmp, idents.new)
+
+# generate plot
+plotorder <- c("sub12", "sub7", "0", "1", "other")
+colsuse <- c("0" = "lightcyan",
+            "1" = "mistyrose",
+             "other" = "gray80",
+            "sub12" = "navy",
+            "sub7" = "firebrick3")
+
+p1 <- SCpubr::do_DimPlot(scd.tmp,
+                         colors.use = colsuse, order = plotorder, shuffle = F,
+                          pt.size = 0.1, ) + 
+  theme(plot.margin =unit(c(0,0,0,0), "pt"), aspect.ratio = 1)
+p1
+ggsave(p1, filename = "plots/umap/s5s_main_umap_subc.png", width = 20, height = 20, units = "cm")
+```
