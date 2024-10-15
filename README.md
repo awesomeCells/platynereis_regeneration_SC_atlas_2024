@@ -65,12 +65,12 @@ As quality check, I compared bulk and single cell transcriptome time series.
 
 contains smaller annotation files and example gene tables for plotting.
 
-### Additional data sources
+### Data depository
 Single cell sequencing data (raw): `NCBI SRA PRJNA1060254`
-->  `data/scd.RDS`
+-> `data/matrix_files/0hpa_A/filtered_feature_bc_matrix` etc (for importing in `01_cellranger.sh`). 
 
-Single cell sequencing data (processed seurat object, basically the result of the code of this project): `NCBI GEO GSE277281`
--> `data/matrix_files/0hpa_A/filtered_feature_bc_matrix` etc
+Processed single cell data (result of the code in this project): `NCBI GEO GSE277281`
+->  `data/scd.RDS`
 
 ### References
 1. Stockinger, A. W., Adelmann, L., Fahrenberger, M., Ruta, C., Özpolat, B. D., Milivojev, N., Balavoine, G. & Raible, F. Molecular profiles, sources and lineage restrictions of stem cells in an annelid regeneration model. bioRxiv 2024.07.09.602635 doi:10.1101/2024.07.09.602635
