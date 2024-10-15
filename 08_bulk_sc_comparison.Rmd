@@ -1,0 +1,72 @@
+---
+title: "08_bulk_singlecell_comparison"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(openxlsx)
+library(tidyverse)
+library(SCpubr)
+library(ggplot2)
+
+load(file = "data/scd.RData")
+```
+
+Here we check whether single cell and bulk sequencing samples correlate according to their sampling timepoint. While the methods used for librare preparation and sequencing are very different, it is still expected that strongly variable genes behave similarly between a (pseudobulked) single cell time series and the corresponding bulk RNA sequencing time series.
+
+```{r}
+# get data
+load(file = "data/scd.RData")
+load(file = "data/deseqfile.Rdata")
+# details for bulk data (deseqfile) generation in manuscript
+
+# aggregate single cell data ("pseudobulk")
+sc.df <- AggregateExpression(scd, assays = "RNA", slot = "counts", group.by = "timepoint")
+sc.df <- as.data.frame(sc.df)
+
+# generate and wrangle bulk dataframe
+bulk.df <- as.data.frame(counts(seqdata, normalized = FALSE))
+rownames(bulk.df) <- gsub("_", "-", rownames(bulk.df))
+colnames(bulk.df) <- paste(seqdata$timepoint, seqdata$biorep, sep = "_BR")
+
+# extract variable features of single cell data
+var.features <- scd@assays$RNA@var.features
+```
+
+```{r}
+# subset to only variable features
+bulk.df <- bulk.df[var.features,]
+sc.df <- sc.df[var.features,]
+```
+
+```{r}
+# remove rows with 0
+rows_with_zero <- apply(bulk.df, 1, function(x) any(x == 0))
+bulk.df.sub <- bulk.df[!rows_with_zero,]
+
+```
+
+```{r}
+# intersect both dfs; keep only rows in intersect
+
+intersect <- intersect(rownames(bulk.df.sub), rownames(sc.df))
+
+bulk.df.sub <- bulk.df.sub[intersect, ]
+sc.df.sub <- sc.df[intersect, ]
+```
+
+scale data for comparability
+```{r}
+sc.df.norm <- sc.df.sub / rowSums(sc.df.sub)
+rowSums(sc.df.norm)
+
+bulk.df.norm <- bulk.df.sub / rowSums(bulk.df.sub)
+rowSums(bulk.df.norm)
+```
+
+correlate data
+```{r}
+cor.mat <- cor(x = sc.df.norm, y = bulk.df.norm)
+pheatmap(cor.mat)
+```

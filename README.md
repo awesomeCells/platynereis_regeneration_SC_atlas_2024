@@ -18,43 +18,57 @@ Packages and versions used can be found in the manuscript methods section.
 ## Processing steps
 ### 1. Mapping reads with cellranger
 `01_cellranger.sh`
+
 Raw reads (see below) were mapped against a custom Cellranger (10X genomics, v7.0.1) reference generated from the Platynereis draft genome (Genbank ID: GCA_026936325.1, annotation version v021)
 
 ### 2. Seurat preprocessing
 `02_seurat_preprocessing.Rmd`
+
 Cellranger output files generated in 1. are imported to R and processed as seurat objects. After outlier removal, all objects are then merged and the merged object is processed as one dataset.
 Includes dimensionality reduction and population clustering.
 
 ### 3. Additional Seurat processing
 `03_sc_additional_processing.Rmd`
+
 Perform log-transformation for better visualisations, and sub-cluster and re-process two clusters of interest.
 
 ### 4. Find marker genes
 `04_find_cluster_markers.Rmd`
+
 Use this to compare gene expression levels between clusters to identify those genes unique to one cluster (markergenes).
 
 ### 5. Single Cell stats calculation
 `05_singlecell_stats.Rmd`
+
 Testing whether UMIs per cell are significantly higher at later stages of regeneration.
 
 ### 6. Cytotrace
 `06_cytotrace.Rmd`
+
 Calculates "cell differentiation potential" as proxy for identifying less differentiated (i.e. more stem-like) cells. 
 See https://cytotrace.stanford.edu for reference and code.
 
 ### 7. Doublet Prediction
 `07_doublet_prediction.Rmd`
+
 Cell doublets are common technical artifacts in single cell sequencing experiments. Here I run code to predict cells that are likely doublets, using DoubletFinder (https://github.com/chris-mcginnis-ucsf/DoubletFinder).
 
+### 8. Bulk vs. Single Cell comparison
+`08_bulk_sc_comparison.Rmd`
+
+As quality check, I compared bulk and single cell transcriptome time series.
+
 ## Data and References
+
 ### data directory
 `data/`
+
 contains smaller annotation files and example gene tables for plotting.
 
 ### Additional data sources
-Single cell sequencing data (raw): NCBI SRA PRJNA1060254
+Single cell sequencing data (raw): `NCBI SRA PRJNA1060254`
 ->  `data/scd.RDS`
-Single cell sequencing data (processed seurat object, basically the result of the code of this project): NCBI GEO GSE277281
+Single cell sequencing data (processed seurat object, basically the result of the code of this project): `NCBI GEO GSE277281`
 -> `data/matrix_files/0hpa_A/filtered_feature_bc_matrix` etc
 
 ### References
