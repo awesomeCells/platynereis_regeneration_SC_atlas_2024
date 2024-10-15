@@ -68,6 +68,7 @@ contains smaller annotation files and example gene tables for plotting.
 ### Additional data sources
 Single cell sequencing data (raw): `NCBI SRA PRJNA1060254`
 ->  `data/scd.RDS`
+
 Single cell sequencing data (processed seurat object, basically the result of the code of this project): `NCBI GEO GSE277281`
 -> `data/matrix_files/0hpa_A/filtered_feature_bc_matrix` etc
 
