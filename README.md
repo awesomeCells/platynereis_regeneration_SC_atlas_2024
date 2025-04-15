@@ -19,7 +19,10 @@ Packages and versions used can be found in the manuscript methods section.
 ### 1. Mapping reads with cellranger
 `01_cellranger.sh`
 
-Raw reads (see below) were mapped against a custom Cellranger (10X genomics, v7.0.1) reference generated from the Platynereis draft genome (Genbank ID: GCA_026936325.1, annotation version v021)
+Raw reads (see below) were mapped against a custom Cellranger (10X genomics, v7.0.1) reference generated from the Platynereis draft genome (Genbank ID: GCA_026936325.1, annotation version v021; Mutemi et al, 2024, bioRxiv)
+
+Annotation file used for this analysis: pdumv021_agat.gtf from
+Mutemi, K. N. (2025). Platynereis_dumerilii_version1.0_annotation_files [Data set]. Zenodo. https://doi.org/10.5281/zenodo.14904116
 
 ### 2. Seurat preprocessing
 `02_seurat_preprocessing.Rmd`
@@ -85,6 +88,8 @@ Processed single cell data (result of the code in this project): `NCBI GEO GSE27
 3. Steger, J., Cole, A. G., Denner, A., Lebedeva, T., Genikhovich, G., Ries, A., Reischl, R., Taudes, E., Lassnig, M. & Technau, U. Single-cell transcriptomics identifies conserved regulators of neuroglandular lineages. Cell Rep. 40, 111370 (2022).
 4. Gulati, G. S., Sikandar, S. S., Wesche, D. J., Manjunath, A., Bharadwaj, A., Berger, M. J., Ilagan, F., Kuo, A. H., Hsieh, R. W., Cai, S., Zabala, M., Scheeren, F. A., Lobo, N. A., Qian, D., Yu, F. B., Dirbas, F. M., Clarke, M. F. & Newman, A. M. Single-cell transcriptional diversity is a hallmark of developmental potential. Science 367, 405–411 (2020).
 5. McGinnis, C. S., Murrow, L. M. & Gartner, Z. J. DoubletFinder: Doublet Detection in Single-Cell RNA Sequencing Data Using Artificial Nearest Neighbors. Cell Syst. 8, 329-337.e4 (2019).
+6. Mutemi, K. N., Simakov, O., Pan, L., Santangeli, L., Null, R., Handberg-Thorsager, M., Vellutini, B. C., Peterson, K. J., Fromm, B., Larsson, T., Savage, E., Lopez, M. O., Hercog, R., Provaznik, J., Ordoñez-Rueda, D., Azevedo, N., Gazave, E., Vervoort, M., Tomancak, P., Tan, W., Winkler, S., Benes, V., Hui, J., Helm, C., Özpolat, B. D. & Arendt, D. A genome resource for the marine annelid Platynereis dumerilii. bioRxiv 2024.06.21.600153 (2024). doi:10.1101/2024.06.21.600153
+  
   
   
 
