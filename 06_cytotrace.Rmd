@@ -14,7 +14,9 @@ library(ggplot2)
 scd <- readRDS("data/scd.RDS")
 load("data/xloc_blast_hits.RData")
 
-cytotrace.all <- readRDS("data/cytotrace_all.RDS")
+# if you have run this before, you can read in the cytotrace data using the line below.
+# cytotrace.all <- readRDS("data/cytotrace_all.RDS")
+
 ```
 
 # Prepare data
